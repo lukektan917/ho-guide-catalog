@@ -1,0 +1,7 @@
+data/html_cache/
+data/api_cache/
+.Renviron
+.Rhistory
+.RData
+.Rproj.user/
+data/cdx_calendar_raw.txt
