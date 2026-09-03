@@ -1,93 +1,98 @@
 # Ho Family Student Guide Tour Catalog
 
-Two halves:
+A spreadsheet of every Spotlight Tour: the theme, who gave it, when, and the
+three artworks they chose.
 
-1. **Historical catalog** — recover past Student Guide tours (theme, guide,
-   date, the three objects) from the museum's own event pages, enriched with
-   artwork metadata from the Harvard Art Museums API.
-2. **Ongoing additions** — a Google Form → Sheet that new guides append to,
-   using the same schema so history and new entries stay one table.
+## Running it
 
-## Run order
-
-```bash
-Rscript R/01_discover_urls.R     # Wayback CDX -> data/tour_urls.csv (~210 pages)
-Rscript R/02_scrape_tours.R      # scrape pages -> tours_scraped.csv, tour_stops.csv
-Rscript R/03_enrich_objects.R    # HAM API      -> objects.csv        (needs HAM_API_KEY)
-Rscript R/04_build_catalog.R     # join         -> catalog_tours.csv, catalog_long.csv
-```
-
-Run from the project root so `data/...` resolves.
-
-**Validate the parser before the full scrape.** Open `R/02_scrape_tours.R`, set
-`TEST_SLUG` to one slug from `data/tour_urls.csv`, and run it — it parses that
-single page, prints the record, and stops. Confirm `theme`, `guides`,
-`tour_date` and a 3-element `object_ids` all look right, then set `TEST_SLUG`
-back to `NULL`. This script has never been run against the live site (see
-below), so budget for one round of selector fixes.
-
-## Setup
+**One-time setup.** Install the packages (once, in R):
 
 ```r
 install.packages(c("httr2", "rvest", "dplyr", "tidyr", "stringr",
-                   "purrr", "tibble", "readr", "jsonlite", "googlesheets4"))
+                   "purrr", "readr", "jsonlite"))
 ```
 
-API key — put this in `~/.Renviron` and restart R. Never hardcode it, and never
-commit it:
+Then put your museum API key where R can find it. Open `~/.Renviron` (create
+it if it isn't there), add this line, and restart R:
 
 ```
 HAM_API_KEY=your_key_here
 ```
 
-## Why a script you run, and not an assistant
+**Then just:**
 
-`harvardartmuseums.org/robots.txt` is ~110 named AI-crawler user-agents
-(`ClaudeBot`, `anthropic-ai`, `GPTBot`, `CCBot`, …) followed by `Disallow: /`.
-There is **no** `User-agent: *` rule, so an ordinary self-identifying script is
-not covered by any disallow directive — but an AI assistant fetching on your
-behalf is. Hence: Claude wrote this; you run it. Keep the contact address in
-`USER_AGENT` real, keep `REQ_PER_SEC` at 1, and the cache means a rerun costs
-no requests at all.
+```bash
+Rscript catalog.R
+```
 
-## Why the Wayback Machine for discovery
+It reads the tour list in `data/tour_urls.csv` and writes `data/catalog.csv`.
+Takes a few minutes the first time — it pauses a second between downloads to
+be a polite visitor. Runs after that are near-instant, because it keeps the
+pages and API replies it already fetched.
 
-The live calendar is JS-rendered and forward-looking only — no past-event
-archive, no backwards pagination, and `/sitemap.xml` errors out. So the live
-site cannot tell you what ran in 2023. The Internet Archive's CDX API lists
-every `/calendar/` URL it ever crawled, which recovers slugs that are no longer
-linked anywhere.
+## What you get
 
-## What the data looks like
+One row per tour, with these columns:
 
-| Page type | Distinct tours | What's on the page |
-|---|---|---|
-| `spotlight-tour-*` | ~44 | Theme, guide name(s) + class year, date, description, all 3 object links |
-| `student-guide-tour*` | ~119 | Date only — one boilerplate listing reused weekly |
-| `virtual-student-guide-tour*` | ~45 | Date only |
+| Column | Example |
+|---|---|
+| `theme` | Colour and Memory |
+| `guides` | Alex Rivera |
+| `class_years` | 28 |
+| `date` | 2026-09-27 |
+| `times_given` | 3 |
+| `language` | English |
+| `description` | one-sentence summary |
+| `artwork1_artwork` … `artwork3_*` | title, artist, date, accession no., link |
+| `added_by` | `scraped` |
 
-The ~44 Spotlight tours are the real catalog. The other ~164 become deliberate
-**stub** rows (`record_quality == "stub"`) so the timeline shows its own holes.
-Those holes are *not* scraper bugs — the guide and theme were never published
-for the weekly tours. Only DAPP's internal records or the guides themselves can
-fill them.
+## Putting it in a Google Sheet
 
-See `data/gaps_report.txt` after a build for the honest limitations, especially
-this one: **Wayback coverage is a floor, not a census.** A tour that ran once
-and was never crawled is absent with no trace, which is the strongest reason to
-reconcile this against DAPP's own list rather than treating it as complete.
+1. Open a new Google Sheet.
+2. **File → Import** → upload `data/catalog.csv`.
+3. That's your catalog. From here **the Sheet is the real copy**, not this
+   folder.
 
-## The Sheet is the system of record
+New guides add their tour by typing a row straight into the Sheet. Set their
+`added_by` to something other than `scraped` — `submitted` works — so you can
+always tell hand-typed rows from scraped ones.
 
-Once seeded, the Google Sheet — not this repo — is authoritative. These scripts
-produce the historical seed; guides append via the Form
-(`docs/submission_form_fields.md`); the `source` column (`scraped` vs
-`submitted`) keeps provenance legible so a rescrape never clobbers a
-hand-entered row. Sheet creation is left commented in
-`R/04_build_catalog.R` — it should be your deliberate one-time action, not a
-side effect of a rebuild.
+**Careful with re-running.** If you run `catalog.R` again and re-import over
+the Sheet, you'd wipe out any rows guides typed in. Import into a *new tab*
+instead and copy across what you need.
 
-## Before publishing
+A guide filling in a row really only needs `theme`, `guides`, `class_years`,
+`date`, and the three artwork links. The artist/date/medium details are
+looked up automatically for *scraped* tours, but not for hand-typed ones — so
+either they type those in too, or leave them blank for now. (Happy to add a
+small step that fills them in from the links if it becomes annoying.)
 
-This catalog is other students' research under their names. Worth clearing with
-DAPP before it goes anywhere public.
+## What's deliberately not in here
+
+The museum ran generic weekly and virtual Student Guide tours for years using
+one reused listing page that showed only a date — no guide, no theme, no
+artworks. About 164 of those exist. They're left out, because they'd be
+completely empty rows. That information was never published anywhere, so the
+only way to recover those years is from the program's own records or from the
+guides themselves.
+
+Also worth knowing: the tour list came from the Internet Archive's saved
+copies of the museum's calendar, because the live calendar only shows upcoming
+events. So it's "what the web remembers" rather than a guaranteed complete
+list — a tour that ran once and was never saved wouldn't appear at all.
+
+## A note on why you run this and not Claude
+
+Websites publish a file called `robots.txt` listing which automated programs
+they'd rather not have visiting — a posted request, not a lock. The museum's
+asks about 110 AI companies' crawlers, Claude's included, to stay off the
+whole site. It says nothing about ordinary scripts like this one. So Claude
+wrote it; you run it. Keep the email address near the top of `catalog.R`
+accurate, and leave the one-second pause alone.
+
+## `old_version/`
+
+The first version of this project, as five separate scripts. It does more —
+it can rediscover the tour list from scratch, keeps a second table with one
+row per artwork, and has its own test file. `catalog.R` replaces all of it for
+normal use. Kept only for reference; nothing needs it.
