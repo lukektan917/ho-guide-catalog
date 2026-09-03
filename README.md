@@ -13,10 +13,11 @@ install.packages(c("httr2", "rvest", "dplyr", "tidyr", "stringr",
 ```
 
 Then put your museum API key where R can find it. Open `~/.Renviron` (create
-it if it isn't there), add this line, and restart R:
+it if it isn't there), add this line, and restart R (either `HAM_APIKEY`
+or `HAM_API_KEY` works):
 
 ```
-HAM_API_KEY=your_key_here
+HAM_APIKEY=your_key_here
 ```
 
 **Then just:**

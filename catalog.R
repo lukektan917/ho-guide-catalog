@@ -9,7 +9,7 @@
 #
 # Needs your Harvard Art Museums API key. Put this line in ~/.Renviron, then
 # restart R:
-#     HAM_API_KEY=your_key_here
+#     HAM_APIKEY=your_key_here
 #
 # Two things this script does on purpose, both worth leaving alone:
 #   1. It saves every page and API reply into data/ the first time it sees
@@ -37,8 +37,14 @@ dir.create(API_CACHE,  recursive = TRUE, showWarnings = FALSE)
 # with a question instead of just blocking you.
 USER_AGENT <- "HoGuideCatalog/1.0 (Harvard student project; your.email@example.com)"
 
-api_key <- Sys.getenv("HAM_API_KEY")
-if (!nzchar(api_key)) stop("HAM_API_KEY is not set. Add it to ~/.Renviron and restart R.")
+# Your key comes from ~/.Renviron. Either spelling of the name works, since
+# both are easy to end up with.
+api_key <- Sys.getenv("HAM_APIKEY")
+if (!nzchar(api_key)) api_key <- Sys.getenv("HAM_API_KEY")
+if (!nzchar(api_key)) {
+  stop("No API key found. Add a line reading  HAM_APIKEY=your_key_here  to ",
+       "~/.Renviron, then restart R.")
+}
 
 
 # ── Download something, reusing a saved copy if we already have one ─────────
