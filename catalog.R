@@ -197,14 +197,23 @@ read_artwork <- function(artwork_id) {
 
   # An artwork can list several people (artist, printer, former owner...).
   # Prefer whoever is credited as the artist.
+  #
+  # Note the [["people"]] rather than $people. R's $ does PARTIAL matching on
+  # lists, and the API sends a "peoplecount" field on every artwork but omits
+  # "people" entirely for anonymous works. So $people quietly matches
+  # peoplecount and hands back a number instead of a list of people. [[ ]]
+  # matches the name exactly, which is what we want. Same reason for the
+  # [["role"]] and [["displayname"]] below.
   artist <- NA_character_
-  if (!is.null(info$people) && length(info$people) > 0) {
-    roles <- vapply(info$people, function(p) {
-      if (is.null(p$role)) NA_character_ else as.character(p$role)[1]
+  people <- info[["people"]]
+  if (!is.null(people) && length(people) > 0) {
+    roles <- vapply(people, function(p) {
+      role <- p[["role"]]
+      if (is.null(role)) NA_character_ else as.character(role)[1]
     }, character(1))
     pick <- if (any(roles == "Artist", na.rm = TRUE)) which(roles == "Artist")[1] else 1
-    artist <- if (is.null(info$people[[pick]]$displayname)) NA_character_
-              else as.character(info$people[[pick]]$displayname)[1]
+    shown <- people[[pick]][["displayname"]]
+    artist <- if (is.null(shown)) NA_character_ else as.character(shown)[1]
   }
 
   tibble(
