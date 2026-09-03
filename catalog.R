@@ -230,35 +230,59 @@ read_artwork <- function(artwork_id) {
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Step 1: the tour list.
+# Step 1: read every showing.
 #
 # Only the "Spotlight" pages carry a theme, a guide's name and the artworks.
 # The old weekly listings were one reused page with nothing on it but a date,
 # so they are left out entirely -- they would just be empty rows.
 #
-# A guide gives the same tour several times a term, and each showing has its
-# own page. Those are all the same tour, so keep one and record how many
-# times it ran.
+# A guide gives the same tour several times a term, and every showing gets its
+# OWN page with its own date. So read all of them: that is the only way to
+# know when a tour actually started and stopped being given. Collapsing to one
+# page per tour first would leave you holding one arbitrary showing's date --
+# and an arbitrary one, since page names sort alphabetically, which puts
+# "...-10" (the tenth showing) ahead of "...-2" (the second).
 # ─────────────────────────────────────────────────────────────────────────────
-tours <- read_csv("data/tour_urls.csv", show_col_types = FALSE) |>
-  filter(kind == "spotlight") |>
-  group_by(slug_canonical) |>
-  summarise(
-    times_given  = n(),
-    slug         = first(slug),
-    live_url     = first(url_live),
-    archive_url  = first(url_wayback),
-    .groups = "drop"
-  )
+showings <- read_csv("data/tour_urls.csv", show_col_types = FALSE) |>
+  filter(kind == "spotlight")
 
-message("Reading ", nrow(tours), " tours (1 second apart; saved copies are instant)...")
+message("Reading ", nrow(showings), " tour pages (1 second apart; ",
+        "saved copies are instant)...")
 
-tour_details <- pmap_dfr(
-  list(tours$slug, tours$live_url, tours$archive_url),
+showing_details <- pmap_dfr(
+  list(showings$slug, showings$url_live, showings$url_wayback),
   read_tour_page,
   .progress = TRUE
 ) |>
-  left_join(select(tours, slug, slug_canonical, times_given, live_url), by = "slug")
+  left_join(select(showings, slug, slug_canonical, live_url = url_live), by = "slug")
+
+
+# ── Collapse the showings into one row per tour ─────────────────────────────
+# Keep the first value that isn't missing, preserving the column's type even
+# when every value is missing.
+first_known <- function(x) if (any(!is.na(x))) x[!is.na(x)][1] else x[NA_integer_]
+safe_min <- function(d) if (all(is.na(d))) as.Date(NA) else min(d, na.rm = TRUE)
+safe_max <- function(d) if (all(is.na(d))) as.Date(NA) else max(d, na.rm = TRUE)
+
+tour_details <- showing_details |>
+  group_by(slug_canonical) |>
+  summarise(
+    times_given = n(),
+    first_date  = safe_min(date),
+    last_date   = safe_max(date),
+    theme       = first_known(theme),
+    guides      = first_known(guides),
+    class_years = first_known(class_years),
+    language    = first_known(language),
+    description = first_known(description),
+    # Every showing of a tour lists the same three artworks, but an individual
+    # page can be incomplete, so take the showing that parsed the most.
+    artwork_ids = artwork_ids[order(-n_artworks, date)][1],
+    n_artworks  = max(n_artworks),
+    slug        = slug[order(-n_artworks, date)][1],
+    live_url    = live_url[order(-n_artworks, date)][1],
+    .groups = "drop"
+  )
 
 
 # ── Step 2: look up every artwork mentioned ─────────────────────────────────
@@ -285,18 +309,19 @@ artworks_across <- artwork_list |>
               names_glue = "artwork{stop}_{.value}")
 
 catalog <- tour_details |>
-  select(theme, guides, class_years, date, times_given, language,
-         description, n_artworks, slug, live_url) |>
+  select(theme, guides, class_years, first_date, last_date, times_given,
+         language, description, n_artworks, slug, live_url) |>
   left_join(artworks_across, by = "slug") |>
   mutate(added_by = "scraped") |>         # so hand-typed rows stay tellable apart
-  arrange(desc(date))
+  arrange(desc(first_date))
 
 write_csv(catalog, "data/catalog.csv")
 
 message("\nWrote data/catalog.csv -- ", nrow(catalog), " tours.")
-needs_look <- filter(catalog, is.na(theme) | is.na(date) | n_artworks != 3)
+needs_look <- filter(catalog, is.na(theme) | is.na(first_date) | n_artworks != 3)
 if (nrow(needs_look) > 0) {
   message(nrow(needs_look), " row(s) worth checking by hand (missing a theme or ",
           "date, or not exactly 3 artworks):")
-  print(select(needs_look, theme, date, n_artworks, live_url))
+  print(select(needs_look, theme, first_date, n_artworks, live_url))
 }
+

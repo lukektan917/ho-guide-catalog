@@ -40,8 +40,9 @@ One row per tour, with these columns:
 | `theme` | Colour and Memory |
 | `guides` | Alex Rivera |
 | `class_years` | 28 |
-| `date` | 2026-09-27 |
-| `times_given` | 3 |
+| `first_date` | 2023-09-09 — earliest showing found |
+| `last_date` | 2024-02-11 — latest showing found |
+| `times_given` | 7 — how many showings that range covers |
 | `language` | English |
 | `description` | one-sentence summary |
 | `artwork1_artwork` … `artwork3_*` | title, artist, date, accession no., link |
@@ -63,7 +64,7 @@ the Sheet, you'd wipe out any rows guides typed in. Import into a *new tab*
 instead and copy across what you need.
 
 A guide filling in a row really only needs `theme`, `guides`, `class_years`,
-`date`, and the three artwork links. The artist/date/medium details are
+`first_date`, and the three artwork links. The artist/date/medium details are
 looked up automatically for *scraped* tours, but not for hand-typed ones — so
 either they type those in too, or leave them blank for now. (Happy to add a
 small step that fills them in from the links if it becomes annoying.)
