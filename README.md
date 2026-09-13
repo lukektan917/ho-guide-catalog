@@ -18,7 +18,12 @@ or `HAM_API_KEY` works):
 
 ```
 HAM_APIKEY=your_key_here
+CATALOG_CONTACT=your.email@example.com
 ```
+
+`CATALOG_CONTACT` is optional. It is sent with each request so the museum can
+contact whoever is running the script; it is kept out of the repository on
+purpose.
 
 **Then just:**
 
@@ -89,8 +94,9 @@ Websites publish a file called `robots.txt` listing which automated programs
 they'd rather not have visiting — a posted request, not a lock. The museum's
 asks about 110 AI companies' crawlers, Claude's included, to stay off the
 whole site. It says nothing about ordinary scripts like this one. So Claude
-wrote it; you run it. Keep the email address near the top of `catalog.R`
-accurate, and leave the one-second pause alone.
+wrote it; you run it. Set `CATALOG_CONTACT` in `~/.Renviron` so the museum
+has a way to reach whoever is running it, and leave the one-second pause
+alone.
 
 ## `old_version/`
 

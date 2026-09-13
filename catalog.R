@@ -7,9 +7,14 @@
 #   Reads:   data/tour_urls.csv         (the tour list, already assembled)
 #   Writes:  data/catalog.csv           (import this into your Google Sheet)
 #
-# Needs your Harvard Art Museums API key. Put this line in ~/.Renviron, then
+# Needs your Harvard Art Museums API key. Put these lines in ~/.Renviron, then
 # restart R:
 #     HAM_APIKEY=your_key_here
+#     CATALOG_CONTACT=your.email@example.com
+#
+# The contact address is optional but good manners -- it is sent along with
+# each request so the museum can email whoever is running this. It lives in
+# ~/.Renviron rather than in this file so it never ends up in the repository.
 #
 # Two things this script does on purpose, both worth leaving alone:
 #   1. It saves every page and API reply into data/ the first time it sees
@@ -33,9 +38,16 @@ API_CACHE  <- "data/api_cache"
 dir.create(HTML_CACHE, recursive = TRUE, showWarnings = FALSE)
 dir.create(API_CACHE,  recursive = TRUE, showWarnings = FALSE)
 
-# Identify yourself honestly. This is what lets a museum sysadmin email you
-# with a question instead of just blocking you.
-USER_AGENT <- "HoGuideCatalog/1.0 (Harvard student project; your.email@example.com)"
+# Identify yourself honestly. A reachable address is what lets a museum
+# sysadmin email you with a question instead of just blocking you. Set
+# CATALOG_CONTACT in ~/.Renviron to include yours; without it the script still
+# runs and still identifies itself, just without a way to reach you.
+contact <- Sys.getenv("CATALOG_CONTACT")
+USER_AGENT <- if (nzchar(contact)) {
+  paste0("HoGuideCatalog/1.0 (Harvard student project; ", contact, ")")
+} else {
+  "HoGuideCatalog/1.0 (Harvard student project)"
+}
 
 # Your key comes from ~/.Renviron. Either spelling of the name works, since
 # both are easy to end up with.

@@ -8,3 +8,4 @@ data/cdx_calendar_raw.txt
 .Rproj.user
 ho_guide_catalog.Rproj
 .DS_Store
+data/catalog.csv
