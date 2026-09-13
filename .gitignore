@@ -9,3 +9,5 @@ data/cdx_calendar_raw.txt
 ho_guide_catalog.Rproj
 .DS_Store
 data/catalog.csv
+data/tour_urls.csv
+data/discovery_summary.txt

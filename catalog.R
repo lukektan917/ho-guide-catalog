@@ -4,7 +4,7 @@
 # the theme, who gave it, when, and the three artworks they chose.
 #
 #   Run:     Rscript catalog.R          (from this folder)
-#   Reads:   data/tour_urls.csv         (the tour list, already assembled)
+#   Builds:  data/tour_urls.csv         (the tour list; made on first run)
 #   Writes:  data/catalog.csv           (import this into your Google Sheet)
 #
 # Needs your Harvard Art Museums API key. Put these lines in ~/.Renviron, then
@@ -255,6 +255,66 @@ read_artwork <- function(artwork_id) {
 # and an arbitrary one, since page names sort alphabetically, which puts
 # "...-10" (the tenth showing) ahead of "...-2" (the second).
 # ─────────────────────────────────────────────────────────────────────────────
+# The museum's calendar only shows what's coming up -- you can't browse
+# backwards through it, and there's no sitemap. So the list of past tours comes
+# from the Internet Archive, which has kept copies of the calendar for years.
+# This runs once; afterwards data/tour_urls.csv is reused.
+#
+# Worth knowing: this is "what the web remembers", not a guaranteed complete
+# list. A tour that ran once and was never archived won't appear at all.
+build_tour_list <- function() {
+  message("No data/tour_urls.csv yet -- asking the Internet Archive which tour ",
+          "pages ever existed.\nThis part is slow, and a 503 on the way is ",
+          "normal; it retries.")
+
+  raw <- request("http://web.archive.org/cdx/search/cdx") |>
+    req_user_agent(USER_AGENT) |>
+    req_url_query(url = "harvardartmuseums.org/calendar*", output = "text",
+                  fl = "original,timestamp", collapse = "urlkey",
+                  filter = "statuscode:200", limit = 200000) |>
+    req_timeout(300) |>
+    req_retry(max_tries = 6, backoff = ~ min(120, 10 * 2^.x),
+              is_transient = function(r) resp_status(r) %in% c(429, 500, 502, 503, 504)) |>
+    req_perform() |>
+    resp_body_string()
+
+  rows <- str_split_1(raw, "\n")
+  rows <- rows[rows != ""]
+  if (!length(rows)) {
+    stop("The archive returned nothing. It is probably throttling -- wait a ",
+         "few minutes and run again.")
+  }
+
+  tibble(line = rows) |>
+    separate_wider_delim(line, delim = " ", names = c("url", "timestamp"),
+                         too_many = "drop") |>
+    mutate(
+      path = str_remove(str_remove(str_remove(url, "\\?.*$"), "^https?://"), "^www\\."),
+      slug = str_to_lower(str_match(
+        path, "^harvardartmuseums\\.org/(?:index\\.php/)?calendar/([A-Za-z0-9-]+)$")[, 2])
+    ) |>
+    filter(!is.na(slug), str_starts(slug, "spotlight-tour-")) |>
+    # Repeat showings get numbered page names (-2, -3, ...). Strip that to group
+    # them, but NOT the class year, which is also trailing digits: "-27" is the
+    # guide's year, "-27-2" ends in a showing number. Showing numbers stay under
+    # 20 and class years run 24-30, so the cutoff separates them.
+    mutate(slug_canonical = str_remove(slug, "-(?:[1-9]|1[0-9])$"),
+           kind = "spotlight") |>
+    group_by(slug) |>
+    slice_min(timestamp, n = 1, with_ties = FALSE) |>
+    ungroup() |>
+    transmute(
+      slug, slug_canonical, kind,
+      url_live    = paste0("https://harvardartmuseums.org/calendar/", slug),
+      url_wayback = sprintf("https://web.archive.org/web/%sid_/%s", timestamp, url)
+    ) |>
+    arrange(slug)
+}
+
+if (!file.exists("data/tour_urls.csv")) {
+  write_csv(build_tour_list(), "data/tour_urls.csv")
+}
+
 showings <- read_csv("data/tour_urls.csv", show_col_types = FALSE) |>
   filter(kind == "spotlight")
 

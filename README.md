@@ -31,8 +31,11 @@ purpose.
 Rscript catalog.R
 ```
 
-It reads the tour list in `data/tour_urls.csv` and writes `data/catalog.csv`.
-Takes a few minutes the first time — it pauses a second between downloads to
+On the very first run it builds `data/tour_urls.csv` by asking the Internet
+Archive which tour pages ever existed, then reads those pages and writes
+`data/catalog.csv`. After that the tour list is reused.
+
+Takes several minutes the first time — it pauses a second between downloads to
 be a polite visitor. Runs after that are near-instant, because it keeps the
 pages and API replies it already fetched.
 
@@ -73,6 +76,12 @@ A guide filling in a row really only needs `theme`, `guides`, `class_years`,
 looked up automatically for *scraped* tours, but not for hand-typed ones — so
 either they type those in too, or leave them blank for now. (Happy to add a
 small step that fills them in from the links if it becomes annoying.)
+
+## What this repository does and doesn't contain
+
+Code only. The tour list and the finished catalog are **not** committed — they
+name around thirty students and describe their research, and that is theirs to
+publish rather than mine. Running the script rebuilds both from scratch.
 
 ## What's deliberately not in here
 
